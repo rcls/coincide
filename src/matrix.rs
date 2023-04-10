@@ -1,0 +1,134 @@
+
+use std::ops::*;
+
+use crate::cubic::{CubicSolution, cubic_solve};
+use crate::triple::Triple;
+use crate::vector::Vector;
+
+#[cfg(test)]
+use crate::test::Tolerate;
+
+pub type Matrix = Triple<Vector>;
+
+#[inline]
+const fn t<T>(x: T, y: T, z: T) -> Triple<T> { Triple{x, y, z} }
+
+impl Matrix {
+    pub const fn transpose(self: &Matrix) -> Matrix {
+        let Matrix{x, y, z} = self;
+        t(t(x.x, y.x, z.x), t(x.y, y.y, z.y), t(x.z, y.z, z.z))
+    }
+
+    pub fn orthonormal(x: Vector, y: Vector) -> Matrix {
+        let xu = x.unit();
+        let yu = (y - y * xu * xu).unit();
+        [xu, yu, xu.cross(yu)].into()
+    }
+
+    pub fn determinant(self: &Matrix) -> f64 {
+        let Matrix{x, y, z} = self;
+        x.x * y.y * z.z + x.y * y.z * z.x + x.z * y.x * z.y
+            - x.z * y.y * z.x - x.x * y.z * z.y - x.y * y.x * z.z
+    }
+
+    pub fn eigenvalues(self: &Matrix) -> CubicSolution {
+        let Matrix{x, y, z} = self;
+        let a = -1.;
+        let b = x.x + y.y + z.z;
+        let c = z.y * y.z - y.y * z.z
+            + x.z * z.x - x.x * z.z
+            + x.y * y.x - x.x * y.y;
+        let d = self.determinant();
+        cubic_solve(a, b, c, d)
+    }
+
+    // Least-absolute eigenvalue.  Our use-case is for a covariance matrix,
+    // so only postive real values are expected.  Negative values are handled
+    // ad. hoc.
+    pub fn least_abs_eigenvalue(self: &Matrix) -> f64 {
+        let Matrix{x, y, z} = self;
+        let a = -1.;
+        let b = x.x + y.y + z.z;
+        let c = z.y * y.z - y.y * z.z
+            + x.z * z.x - x.x * z.z
+            + x.y * y.x - x.x * y.y;
+        let d = self.determinant();
+        // If we are singular, return zero...
+        if d == 0. {
+            return 0.;
+        }
+        // Solve for 1/eigenvalues and then invert the largest.
+        match cubic_solve(d, c, b, a) {
+            CubicSolution::Real(_, _, w) => 1. / w,
+            CubicSolution::Mixed(x, r, i) => {
+                let n = r*r + i*i;
+                if x*x < n { 1. / n.sqrt() } else { 1. / x }
+            }
+        }
+    }
+}
+
+impl Mul<&Matrix> for &Matrix {
+    type Output = Matrix;
+    fn mul(self, r: &Matrix) -> Matrix {
+        let Matrix{x, y, z} = r.transpose();
+        t(t(self.x * x, self.x * y, self.x * z),
+          t(self.y * x, self.y * y, self.y * z),
+          t(self.z * x, self.z * y, self.z * z))
+    }
+}
+
+impl Mul<Matrix> for Matrix {
+    type Output = Matrix;
+    fn mul(self, r: Matrix) -> Matrix { &self * &r }
+}
+
+impl Mul<&Vector> for &Matrix {
+    type Output = Vector;
+    fn mul(self, &v: &Vector) -> Vector {
+        Triple{x: self.x * v, y: self.y * v, z: self.z * v}
+    }
+}
+
+impl Mul<Vector> for Matrix {
+    type Output = Vector;
+    #[inline]
+    fn mul(self, v: Vector) -> Vector { &self * &v }
+}
+
+#[test]
+fn test_transpose() {
+    let m: Matrix = [[0,1,2], [3,4,5], [6,7,8]].into();
+    let mm: [[f64; 3]; 3] = m.into();
+    let nn: [[f64; 3]; 3] = m.transpose().into();
+    for i in 0..3 {
+        for j in 0..3 {
+            assert_eq!(mm[i][j], nn[j][i]);
+        }
+    }
+}
+
+#[test]
+fn test_eigen() {
+    let m: Matrix = [[2, 0, 0], [0, 3, 0], [0, 0, 4]].into();
+    assert_eq!(m.eigenvalues(), CubicSolution::Real(2., 3., 4.));
+    assert_eq!(m.least_abs_eigenvalue(), 2.);
+
+    let m: Matrix = [[1, 0, 0], [1, 2, 0], [2, 3, 3]].into();
+    assert_eq!(m.eigenvalues(), CubicSolution::Real(1., 2., 3.));
+    assert_eq!(m.least_abs_eigenvalue(), 1.);
+
+    let m: Matrix = [[2, 0, 0], [0, 3, 4], [0, 4, 9]].into();
+    let CubicSolution::Real(u, v, w) = m.eigenvalues() else { panic!() };
+    assert_eq!(u.tolerate(1e-10), 1.);
+    assert_eq!(v, 2.);
+    assert_eq!(w, 11.);
+    assert_eq!(m.least_abs_eigenvalue().tolerate(1e-10), 1.);
+
+    let m: Matrix = [[0, 1, 0], [0, 0, 1], [1, 0, 0]].into();
+    let CubicSolution::Mixed(u, v, w) = m.eigenvalues() else { panic!() };
+    assert_eq!(u.tolerate(1e-10), 1.);
+    assert_eq!(v.tolerate(1e-10), -0.5);
+    assert_eq!(w.tolerate(1e-10), 3.0f64.sqrt() / 2.);
+    assert_eq!(m.least_abs_eigenvalue(), 1.);
+}
