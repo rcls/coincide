@@ -3,8 +3,6 @@ use crate::matrix::Matrix;
 use crate::triple::Triple;
 use crate::vector::Vector;
 
-use std::ops::Mul;
-
 pub const GOLD: f64 = 1.618033988749895;
 
 const fn t<T>(x: T, y: T, z: T) -> Triple<T> { Triple::new(x, y, z) }
@@ -57,11 +55,8 @@ impl IcoGroup {
         r.corners.z = Vector::new(0., GOLD - 1., GOLD).unit();
         r
     }
-    pub fn map<T> (&self, i: u8, v: T) -> <Matrix as Mul<T>>::Output where
-        Matrix: Mul<T>
-    {
-        self.matrices[i as usize] * v
-    }
+
+    pub fn map(&self, i: u8) -> &Matrix { &self.matrices[i as usize] }
 }
 
 pub fn ico_group() -> [Matrix; 120] {
@@ -145,13 +140,16 @@ impl<T: Normalize> Normalize for Triple<T> {
 #[test]
 fn check_gold_const()
 {
-    assert_eq!(GOLD, (5.0f64.sqrt() + 1.0) / 2.0);
+    assert_eq!(GOLD, (5f64.sqrt() + 1.) / 2.);
 }
 
 #[test]
 fn check_norm() {
     assert_eq!((1.0 + GOLD + 1e-10).normalize(), 1.0 + GOLD);
     assert_eq!(2.50000001.normalize(), 2.5.normalize());
+    assert_eq!(rationalise(std::f64::consts::PI.normalize()),
+               (std::f64::consts::PI, 0.));
+    assert_eq!((0.2000000001 * (GOLD + 1.)).normalize(), 0.2 * GOLD + 0.2);
 }
 
 #[test]
@@ -173,4 +171,6 @@ fn test_corners() {
     assert!(g.corners.y.dist(ROT5 * g.corners.y) < 1e-7);
     assert!((ROT5 * g.corners.z).dist(Vector::new(1., 1., 1.).unit()) < 1e-7);
     assert!((ROT5 * g.corners.z).cross([1., 1., 1.].into()).norm() < 1e-7);
+
+    assert_eq!(g.map(0) * &Vector::new(1., 2., 3.), [1., 2., 3.].into());
 }

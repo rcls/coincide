@@ -25,3 +25,11 @@ impl<V, T: Copy, U> PartialEq<U> for Tolerance<V, T> where
             && self.value + self.tolerance >= *other
     }
 }
+
+#[test]
+fn test_tolerance() {
+    println!("{:?}", 10.tolerate(2));
+    assert_eq!(10.tolerate(2), 9);
+    assert_eq!(10.tolerate(0), 10);
+    assert_ne!(10.tolerate(2), 7);
+}

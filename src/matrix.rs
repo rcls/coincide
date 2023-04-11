@@ -19,12 +19,6 @@ impl Matrix {
         t(t(x.x, y.x, z.x), t(x.y, y.y, z.y), t(x.z, y.z, z.z))
     }
 
-    pub fn orthonormal(x: Vector, y: Vector) -> Matrix {
-        let xu = x.unit();
-        let yu = (y - y * xu * xu).unit();
-        [xu, yu, xu.cross(yu)].into()
-    }
-
     pub fn determinant(self: &Matrix) -> f64 {
         let Matrix{x, y, z} = self;
         x.x * y.y * z.z + x.y * y.z * z.x + x.z * y.x * z.y
@@ -129,6 +123,20 @@ fn test_eigen() {
     let CubicSolution::Mixed(u, v, w) = m.eigenvalues() else { panic!() };
     assert_eq!(u.tolerate(1e-10), 1.);
     assert_eq!(v.tolerate(1e-10), -0.5);
-    assert_eq!(w.tolerate(1e-10), 3.0f64.sqrt() / 2.);
+    assert_eq!(w.tolerate(1e-10), 3f64.sqrt() / 2.);
     assert_eq!(m.least_abs_eigenvalue(), 1.);
+}
+
+#[test]
+fn test_least_abs() {
+    // Singular matix, make sure we don't crash.
+    let m: Matrix = [[1., 2., 3.], [3., 2., 1.], [2., 2., 2.]].into();
+    assert_eq!(m.least_abs_eigenvalue(), 0.);
+
+    // Check a couple of cases with complex eigenvalues.
+    let m: Matrix = [[10., 0., 0.], [0., 1., -1.], [0., 1., 1.]].into();
+    assert_eq!(m.least_abs_eigenvalue(), 2f64.sqrt());
+
+    let m: Matrix = [[2., 0., 0.], [0., 10., -10.], [0., 10., 10.]].into();
+    assert_eq!(m.least_abs_eigenvalue().tolerate(1e-10), 2.);
 }

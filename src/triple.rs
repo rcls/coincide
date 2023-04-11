@@ -142,3 +142,40 @@ impl<'a, T: 'a> Sum<&'a Triple<T>> for Triple<T> where
         t
     }
 }
+
+#[test]
+fn test_add() {
+    let u = Triple::new(1., 2., 3.);
+    let v = Triple::new(3., -4., -1.);
+    let s = Triple::new(4., -2., 2.);
+    let d = Triple::new(-2., 6., 4.);
+
+    assert_eq!( u +  v, s);
+    assert_eq!( u + &v, s);
+    assert_eq!(&u +  v, s);
+    assert_eq!(&u + &v, s);
+
+    assert_eq!([u, v].into_iter().sum::<Triple<f64>>(), s);
+    assert_eq!([u, v].iter().sum::<Triple<f64>>(), s);
+
+    let mut uu = u;
+    uu += v;
+    assert_eq!(uu, s);
+
+    assert_eq!( u -  v, d);
+    assert_eq!( u - &v, d);
+    assert_eq!(&u -  v, d);
+    assert_eq!(&u - &v, d);
+}
+
+#[test]
+fn test_smul() {
+    let u = Triple::new(1., 2., 3.);
+    assert_eq!(u * 1.25, [1.25, 2.5, 3.75].into());
+}
+
+#[test]
+fn test_more() {
+    let u = Triple::new(1., 2., 3.);
+    assert_eq!(u, u.clone());
+}

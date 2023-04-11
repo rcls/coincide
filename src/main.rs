@@ -63,7 +63,7 @@ fn is_done(group: &IcoGroup, stuff: &mut HashMap<u32, (f64, u8)>,
 
 fn five_points(group: &IcoGroup, p: &Vector, a: u8, b: u8, c: u8, d: u8)
                -> [Vector; 5] {
-    let f = |i| group.map(i, *p);
+    let f = |i| group.map(i) * p;
     [*p, f(a), f(b), f(c), f(d)]
 }
 

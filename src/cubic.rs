@@ -53,11 +53,14 @@ pub fn cubic_solve(a: f64, b: f64, c: f64, d: f64) -> CubicSolution {
         let r3 = (b - cs - c2) * scale;
 
         // Order the roots.
-        let (u, v, w) = if r1.abs() < r2.abs() {
-            if r1.abs() < r3.abs() { (r1, r2, r3) } else { (r3, r2, r1) }
+        let (u, v, w) = if r1.abs() < r2.abs() && r1.abs() < r3.abs() {
+            (r1, r2, r3)
+        }
+        else if !(r1.abs() < r2.abs()) && r2.abs() < r3.abs() {
+            (r2, r1, r3)
         }
         else {
-            if r2.abs() < r3.abs() { (r2, r1, r3) } else { (r3, r2, r1) }
+            (r3, r2, r1)
         };
         let (v, w) = if v.abs() < w.abs() { (v, w) } else { (w, v) };
         CubicSolution::Real(u, v, w)
@@ -67,6 +70,9 @@ pub fn cubic_solve(a: f64, b: f64, c: f64, d: f64) -> CubicSolution {
 #[test]
 fn test_cubert_1() {
     assert_eq!(COS60, 3f64.sqrt() / 2.);
+
+    let c = cubic_solve(0., 0., 0., 0.);
+    println!("{:?}", c.clone());
 
     let CubicSolution::Mixed(x, r, i) = cubic_solve(1., 0., 0., 1.)
     else { panic!() };
