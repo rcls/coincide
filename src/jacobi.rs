@@ -44,7 +44,7 @@ pub fn jacobi(m: &Matrix) -> (Matrix, Vector) {
     (rot, Vector::new(diag.x.x, diag.y.y, diag.z.z))
 }
 
-fn jacobi2(a: f64, d: f64, b: f64) -> (f64, f64) {
+pub fn jacobi2(a: f64, d: f64, b: f64) -> (f64, f64) {
     // Sym. matrix [a,b;b,d], find c,s = cos θ, sin θ such that
     //
     // [c,s;-s,c] * [a,b;b,d] * [c,-s;s,c]
@@ -64,12 +64,19 @@ fn jacobi2(a: f64, d: f64, b: f64) -> (f64, f64) {
     // c² = 1/2 + cos2/2
     // s = c·s / c = sin2by2 / c
     //
-    // An overall sign flip of both c,s doesn't matter so we take c to be
-    // positive.
-    let c = (0.5 + 0.5 * cos2).sqrt();
-    // If the test fails then we have s = ±1 and zeros or rounding errors.
-    // The sign of s doesn't matter in that case.
-    if sin2by2.abs() < c { (c, sin2by2 / c) } else { (1., 0.) }
+    // Or, s² = 1/2 - cos2/2, c = c·s / s.  Choose which to use based on
+    // numerical stability.  This also avoids any divide-by-zero.
+    //
+    // An overall sign flip of both c,s doesn't matter:  If their product is c.s
+    // = sin2by2 then we are OK.
+    if cos2 >= 0. {
+        let c = (0.5 + 0.5 * cos2).sqrt();
+        (c, sin2by2 / c)
+    }
+    else {
+        let s = (0.5 - 0.5 * cos2).sqrt();
+        (sin2by2 / s, s)
+    }
 }
 
 #[cfg(test)]

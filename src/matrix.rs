@@ -25,6 +25,22 @@ impl Matrix {
             - x.z * y.y * z.x - x.x * y.z * z.y - x.y * y.x * z.z
     }
 
+    pub fn invert(self: &Matrix) -> Matrix {
+        let d = self.determinant();
+        let a: [[f64; 3]; 3] = (*self).into();
+        let mut inv = [[0.; 3]; 3];
+        for i in 0..3 {
+            let i1 = if i == 2 {0} else {i + 1};
+            let i2 = if i == 0 {2} else {i - 1};
+            for j in 0..3 {
+                let j1 = if j == 2 {0} else {j + 1};
+                let j2 = if j == 0 {2} else {j - 1};
+                inv[j][i] = (a[i1][j1] * a[i2][j2] - a[i1][j2] * a[i2][j1]) / d;
+            }
+        }
+        inv.into()
+    }
+
     pub fn eigenvalues(self: &Matrix) -> CubicSolution {
         let Matrix{x, y, z} = self;
         let a = -1.;
@@ -139,4 +155,20 @@ fn test_least_abs() {
 
     let m: Matrix = [[2., 0., 0.], [0., 10., -10.], [0., 10., 10.]].into();
     assert_eq!(m.least_abs_eigenvalue().tolerate(1e-10), 2.);
+}
+
+#[test]
+fn test_invert() {
+    let m: Matrix = [[1, 2, 3], [2, 9, 4], [4, 5, 6]].into();
+    println!("{:?}", m);
+    let n = m.invert();
+    println!("{:?}", 36. * n);
+    let i = m * n;
+    println!("{:?}", i);
+    let e1 = Vector::new(1.,0.,0.);
+    let e2 = Vector::new(0.,1.,0.);
+    let e3 = Vector::new(0.,0.,1.);
+    assert!((i * e1).dist(e1) < 1e-16);
+    assert!((i * e2).dist(e2) < 1e-16);
+    assert!((i * e3).dist(e3) < 1e-16);
 }

@@ -53,19 +53,21 @@ pub fn cubic_solve(a: f64, b: f64, c: f64, d: f64) -> CubicSolution {
         let r3 = (b - cs - c2) * scale;
 
         // Order the roots.
-        let (u, v, w) = if r1.abs() < r2.abs() && r1.abs() < r3.abs() {
-            (r1, r2, r3)
-        }
-        else if !(r1.abs() < r2.abs()) && r2.abs() < r3.abs() {
-            (r2, r1, r3)
-        }
-        else {
-            (r3, r2, r1)
-        };
-        let (v, w) = if v.abs() < w.abs() { (v, w) } else { (w, v) };
+        let (u, v, w) = sort3a(r1, r2, r3);
         CubicSolution::Real(u, v, w)
     }
 }
+
+fn sort3a(x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+    let (xa, ya, za) = (x.abs(), y.abs(), z.abs());
+    if xa <= ya {
+        if ya <= za {(x, y, z)} else if xa <= za {(x, z, y)} else {(z, x, y)}
+    }
+    else {
+        if xa <= za {(y, x, z)} else if ya <= za {(y, z, x)} else {(z, y, x)}
+    }
+}
+
 
 #[test]
 fn test_cubert_1() {
@@ -118,4 +120,18 @@ fn test_repeat() {
     assert_eq!(a, 3.);
     assert_eq!(b, 3.);
     assert_eq!(c, 3.);
+}
+
+#[test]
+fn test_sort3() {
+    for x in -3..4i8 {
+        for y in -3..4 {
+            for z in -3..4 {
+                let mut a = [x, y, z];
+                a.sort_by_key(|p| p.abs());
+                let s = sort3a(x as f64, y as f64, z as f64);
+                assert_eq!((a[0].into(), a[1].into(), a[2].into()), s);
+            }
+        }
+    }
 }

@@ -30,6 +30,8 @@ pub struct IcoGroup {
     pub inv_index: [u8; 120],
     /// A basic triangle, the 120 images of this tile the sphere.
     pub corners: Matrix,
+    /// Weighted sum of corners to give direction of [1,1,4*GOLD].
+    pub trunc_ico_dodec: Vector,
 }
 
 impl IcoGroup {
@@ -37,7 +39,7 @@ impl IcoGroup {
         let mut r = IcoGroup{
             matrices: ico_group(), mat_to_index: Default::default(),
             mult_index: [[0; 120]; 120], inv_index: [0; 120],
-            corners: Default::default()
+            corners: Matrix::default(), trunc_ico_dodec: Vector::default()
         };
         for (index, &matrix) in r.matrices.iter().enumerate() {
             r.mat_to_index.insert(matrix, index as u8);
@@ -50,9 +52,18 @@ impl IcoGroup {
         for (i, m) in r.inv_index.iter_mut().zip(r.matrices.iter()) {
             *i = r.mat_to_index[&m.transpose()];
         }
-        r.corners.x = Vector::new(1., 0., 0.).unit();
+
+        // Norm 1
+        r.corners.x = Vector::new(0., 0., 1.).unit();
+        // Norm² = 1 + GOLD² = GOLD + 1.
         r.corners.y = Vector::new(1., 0., GOLD).unit();
+        // Norm² = (GOLD-1)² + GOLD² = 2GOLD² - 2GOLD + 1 = 3
         r.corners.z = Vector::new(0., GOLD - 1., GOLD).unit();
+
+        let tid = r.corners.transpose().invert() *
+            Vector::new(1., 1., 4. * GOLD);
+        let tid_sum = tid.x + tid.y + tid.z;
+        r.trunc_ico_dodec = tid / tid_sum;
         r
     }
 
@@ -173,4 +184,12 @@ fn test_corners() {
     assert!((ROT5 * g.corners.z).cross([1., 1., 1.].into()).norm() < 1e-7);
 
     assert_eq!(g.map(0) * &Vector::new(1., 2., 3.), [1., 2., 3.].into());
+
+    assert!(g.trunc_ico_dodec.x > 0.);
+    assert!(g.trunc_ico_dodec.y > 0.);
+    assert!(g.trunc_ico_dodec.z > 0.);
+    assert_eq!(g.trunc_ico_dodec * Vector::new(1., 1., 1.), 1.);
+
+    assert!((g.corners.transpose() * g.trunc_ico_dodec).unit().dist(
+        Vector::new(1., 1., 4. * GOLD).unit()) < 2e-16);
 }
