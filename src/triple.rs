@@ -2,6 +2,7 @@
 use std::cmp::Ordering;
 use std::iter::*;
 use std::ops::*;
+use std::fmt;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 pub struct Triple<T>{pub x: T, pub y: T, pub z: T}
@@ -143,6 +144,12 @@ impl<'a, T: 'a> Sum<&'a Triple<T>> for Triple<T> where
     }
 }
 
+impl<T: fmt::Display> fmt::Display for Triple<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({}, {}, {})", self.x, self.y, self.z)
+    }
+}
+
 #[test]
 fn test_add() {
     let u = Triple::new(1., 2., 3.);
@@ -171,6 +178,7 @@ fn test_add() {
 #[test]
 fn test_smul() {
     let u = Triple::new(1., 2., 3.);
+    println!("{:?}", u);
     assert_eq!(u * 1.25, [1.25, 2.5, 3.75].into());
 }
 

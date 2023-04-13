@@ -107,7 +107,6 @@ fn test_jacobi2() {
 fn test_jacobi_single(m: &Matrix) {
     let (rot, eigen) = jacobi(&m);
     let diag = &rot * m * rot.transpose();
-    println!("{:?}", eigen);
     const EPSILON: f64 = 1e-14;
     assert!(diag.x.y.abs() < EPSILON);
     assert!(diag.y.x.abs() < EPSILON);

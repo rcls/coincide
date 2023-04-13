@@ -53,12 +53,9 @@ impl IcoGroup {
             *i = r.mat_to_index[&m.transpose()];
         }
 
-        // Norm 1
-        r.corners.x = Vector::new(0., 0., 1.).unit();
-        // Norm² = 1 + GOLD² = GOLD + 1.
-        r.corners.y = Vector::new(1., 0., GOLD).unit();
-        // Norm² = (GOLD-1)² + GOLD² = 2GOLD² - 2GOLD + 1 = 3
-        r.corners.z = Vector::new(0., GOLD - 1., GOLD).unit();
+        r.corners.x = Vector::new(1., 0., GOLD).unit();
+        r.corners.y = Vector::new(0., GOLD - 1., GOLD).unit();
+        r.corners.z = Vector::new(0., 0., 1.).unit();
 
         let tid = r.corners.transpose().invert() *
             Vector::new(1., 1., 4. * GOLD);
@@ -152,6 +149,7 @@ impl<T: Normalize> Normalize for Triple<T> {
 fn check_gold_const()
 {
     assert_eq!(GOLD, (5f64.sqrt() + 1.) / 2.);
+    assert_eq!(GOLD * GOLD, GOLD + 1.);
 }
 
 #[test]
@@ -179,9 +177,9 @@ fn test_rot5() {
 #[test]
 fn test_corners() {
     let g = IcoGroup::new();
-    assert!(g.corners.y.dist(ROT5 * g.corners.y) < 1e-7);
-    assert!((ROT5 * g.corners.z).dist(Vector::new(1., 1., 1.).unit()) < 1e-7);
-    assert!((ROT5 * g.corners.z).cross([1., 1., 1.].into()).norm() < 1e-7);
+    assert!(g.corners.x.dist(ROT5 * g.corners.x) < 1e-7);
+    assert!((ROT5 * g.corners.y).dist(Vector::new(1., 1., 1.).unit()) < 1e-7);
+    assert!((ROT5 * g.corners.y).cross([1., 1., 1.].into()).norm() < 1e-7);
 
     assert_eq!(g.map(0) * &Vector::new(1., 2., 3.), [1., 2., 3.].into());
 

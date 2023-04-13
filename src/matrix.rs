@@ -160,11 +160,8 @@ fn test_least_abs() {
 #[test]
 fn test_invert() {
     let m: Matrix = [[1, 2, 3], [2, 9, 4], [4, 5, 6]].into();
-    println!("{:?}", m);
     let n = m.invert();
-    println!("{:?}", 36. * n);
     let i = m * n;
-    println!("{:?}", i);
     let e1 = Vector::new(1.,0.,0.);
     let e2 = Vector::new(0.,1.,0.);
     let e3 = Vector::new(0.,0.,1.);

@@ -1,4 +1,6 @@
 
+use crate::sortn::SortN;
+
 #[cfg(test)]
 use crate::test::Tolerate;
 
@@ -53,18 +55,8 @@ pub fn cubic_solve(a: f64, b: f64, c: f64, d: f64) -> CubicSolution {
         let r3 = (b - cs - c2) * scale;
 
         // Order the roots.
-        let (u, v, w) = sort3a(r1, r2, r3);
+        let (u, v, w) = (r1, r2, r3).sortn_by_key(|x: &f64| x.abs());
         CubicSolution::Real(u, v, w)
-    }
-}
-
-fn sort3a(x: f64, y: f64, z: f64) -> (f64, f64, f64) {
-    let (xa, ya, za) = (x.abs(), y.abs(), z.abs());
-    if xa <= ya {
-        if ya <= za {(x, y, z)} else if xa <= za {(x, z, y)} else {(z, x, y)}
-    }
-    else {
-        if xa <= za {(y, x, z)} else if ya <= za {(y, z, x)} else {(z, y, x)}
     }
 }
 
@@ -129,7 +121,8 @@ fn test_sort3() {
             for z in -3..4 {
                 let mut a = [x, y, z];
                 a.sort_by_key(|p| p.abs());
-                let s = sort3a(x as f64, y as f64, z as f64);
+                let s = (x as f64, y as f64, z as f64)
+                    .sortn_by_key(|p| p.abs());
                 assert_eq!((a[0].into(), a[1].into(), a[2].into()), s);
             }
         }
