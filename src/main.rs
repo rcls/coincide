@@ -7,6 +7,7 @@ mod cubic;
 mod gold;
 mod jacobi;
 mod matrix;
+mod pentagons;
 mod quad;
 mod sortn;
 mod test;
@@ -181,6 +182,69 @@ fn covar(vv: &[Vector]) -> Matrix {
     covar.into()
 }
 
+fn sumsq(vv: &[Vector]) -> Matrix {
+    let mut sumsq = [[0.; 3]; 3];
+    for v in vv {
+        let v: [f64; 3] = (*v).into();
+        for (i, x) in v.iter().enumerate() {
+            for (j, y) in v.iter().enumerate() {
+                sumsq[i][j] += x * y;
+            }
+        }
+    }
+    sumsq.into()
+}
+
+pub fn optimize(group: &IcoGroup, a: u8, b: u8, c: u8, d: u8) -> Option<()> {
+    let f = |x, y| evaluate_determinant(group, a, b, c, d, x, y);
+
+    fn ε(δx: f64, δy: f64) -> f64 { (0.5 * δx.hypot(δy)).max(1e-10) }
+
+    let mut x = group.trunc_ico_dodec.x;
+    let mut y = group.trunc_ico_dodec.y;
+
+    let (mut δx, mut δy) = step(f, x, y, 0.25)?;
+    x += δx;
+    y += δy;
+    for _ in 0..10 {
+        (δx, δy) = step(f, x, y, ε(δx, δy))?;
+        x += δx;
+        y += δy;
+    }
+    let q = evaluate_eigen(group, a, b, c, d, x, y);
+    if q >= 1e-5 {
+        return None;
+    }
+
+    for _ in 0..10 {
+        (δx, δy) = step(f, x, y, ε(δx, δy))?;
+        x += δx;
+        y += δy;
+    }
+    println!("------------------ OPT -------------------------------");
+    let z = 1. - (x + y);
+    let p = (group.corners.transpose() * Vector::new(x, y, z)).unit();
+    let pp = five_points(group, &p, a, b, c, d);
+    let (_m, e) = jacobi::jacobi(&sumsq(&pp));
+    use sortn::SortN;
+    let e = (e.x, e.y, e.z).sortn();
+    println!("{} from ({}, {})", p, x, y);
+    println!("Radii: {:?}", e);
+    let c = pentagons::closures(group, a, b, c, d);
+    if c > 0 {
+        println!("WHOOP {}!", c);
+        println!("Covar E = {}", jacobi::jacobi(&covar(&pp)).1);
+        for v in pp {
+            println!("{}", v);
+        }
+    }
+    None
+}
+
+fn dbfs_sort(a: &mut [impl PartialOrd]) {
+    a.sort_by(|x, y| x.partial_cmp(y).unwrap())
+}
+
 fn main() {
     let group = IcoGroup::new();
     let point = Vector::new(1., 1., 4. * gold::GOLD + 1.);
@@ -197,13 +261,14 @@ fn main() {
                     //let fit = plane::<false>(&p);
                     let u = covar(&p).least_abs_eigenvalue();
                     residuals.insert(quad::join([d, c, b, a]), (u, 1));
-                    if true &&
+                    if false &&
                         (u > 5. && u < 5.00005 || u > 20. && u < 20.00006)
                     {
                         println!("------------------------------------");
                         println!("Points: {:?}", p);
                         println!("Eigen: {:?}", covar(&p).eigenvalues());
                         println!("Fit: {:?}", plane(&p));
+                        optimize(&group, d, c, b, a);
                     }
                 }
             }
@@ -233,6 +298,16 @@ fn main() {
             if count > 0 {
                 println!("{:.6} {}", bin as f64 * 1e-6, count);
             }
+        }
+    }
+
+    let mut array: Vec<(f64, u32)> = residuals.iter().map(|(k, &(r, _))| (r, *k)).collect();
+    dbfs_sort(&mut array[..]);
+    for (r, k) in array {
+        if true || r > 0.001 {
+            // println!("{} {}", r, k);
+            let [a, b, c, d] = quad::split(k);
+            optimize(&group, a, b, c, d);
         }
     }
 }
