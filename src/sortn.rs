@@ -52,3 +52,18 @@ impl<T: Copy> SortN for [T; 4] {
         }
     }
 }
+
+#[test]
+fn test_sort3() {
+    for x in -3..=3i8 {
+        for y in -3..=3 {
+            for z in -3..=3 {
+                let mut a = [x, y, z];
+                a.sort_by_key(|p| p.abs());
+                let s = (x as f64, y as f64, z as f64)
+                    .sortn_by_key(|p| p.abs());
+                assert_eq!((a[0].into(), a[1].into(), a[2].into()), s);
+            }
+        }
+    }
+}

@@ -187,3 +187,11 @@ fn test_more() {
     let u = Triple::new(1., 2., 3.);
     assert_eq!(u, u.clone());
 }
+
+#[test]
+fn test_display() {
+    let s = format!("{}", Triple::new(1.23, 3.45, 6.89));
+    assert_eq!(s, "(1.23, 3.45, 6.89)");
+    let s = format!("{}", Triple::new(999, 888, 777));
+    assert_eq!(s, "(999, 888, 777)");
+}
