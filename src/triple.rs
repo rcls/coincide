@@ -43,7 +43,7 @@ impl<'a, T: 'a> IntoIterator for &'a Triple<T> {
 // Forward non-reference versions to the reference version.
 macro_rules! binop_element {
     ($Trait:ident, $method:ident) => {
-        impl<'a, T: 'a> const $Trait<&'a Triple<T>> for &'a Triple<T> where for<'u> &'u T: ~const $Trait<&'u T, Output=T> {
+        impl<'a, T: 'a> $Trait<&'a Triple<T>> for &'a Triple<T> where for<'u> &'u T: $Trait<&'u T, Output=T> {
             type Output = Triple<T>;
             fn $method(self, r: &'a Triple<T>) -> Self::Output {
                 Triple::new($Trait::$method(&self.x, &r.x),

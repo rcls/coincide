@@ -59,8 +59,8 @@ pub fn jacobi2(a: f64, d: f64, b: f64) -> (f64, f64) {
         // It doesn't matter what we do :-)
         return (1., 0.);
     }
-    let cos2 = (a - d) / h;
-    let sin2by2 = b / h;
+    let cos2 = (a - d) / h;             // cos 2θ
+    let sin2by2 = b / h;                // ½ sin 2θ
     // c² = 1/2 + cos2/2
     // s = c·s / c = sin2by2 / c
     //

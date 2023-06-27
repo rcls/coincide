@@ -2,6 +2,7 @@
 #![allow(mixed_script_confusables)]
 #![feature(const_trait_impl)]
 #![feature(type_alias_impl_trait)]
+#![feature(impl_trait_in_assoc_type)]
 
 mod cubic;
 mod gold;
@@ -25,7 +26,7 @@ use std::collections::HashMap;
 
 fn plane(vv: &[Vector]) -> (Vector, f64, f64, u8) {
     let (evectors, evalues) = jacobi::jacobi(&covar(vv));
-    // Find the smallest eigen value and it's eigen vector.
+    // Find the smallest eigen value and its eigen vector.
     let (normal, residual) =
         if evalues.x < evalues.y && evalues.x < evalues.z {
             (evectors.x, evalues.x)
@@ -78,6 +79,7 @@ fn evaluate(group: &IcoGroup, f: impl FnOnce(&Matrix) -> f64,
     // normalising keeps the covariance matrix as a quad. form in x and y.
     let p = group.corners.transpose() * Vector{x, y, z};
     let mut r = f(&covar(&five_points(group, &p, a, b, c, d)));
+    // If we are outside of the basic triangle, then kick us back in.
     if x < -ε {
         r += x * x - ε * ε;
     }
@@ -108,7 +110,7 @@ fn derivs(f: impl Fn(f64, f64) -> f64, x:f64, y: f64, ε: f64) -> [f64; 5] {
             m[j][i] = f(x + (i as f64 - 1.) * ε, y + (j as f64 - 1.) * ε);
         }
     }
-    let c6 = c * 1./6.;
+    let c6 = 1./6. * c;
     let c3 = 1./3. * c * c;
     let c4 = 0.25 * c * c;
     let m: Matrix = m.into();
@@ -137,7 +139,7 @@ pub fn step(f: impl Fn(f64, f64) -> f64, x: f64, y: f64, ε: f64)
     let vx = dxy * dy - dyy * dx;
     let vy = dxy * dx - dxx * dy;
     // Don't do big jumps.  For us, we start in the middle of [1,0],[0,1],[0,0]
-    // so bounding the step 1 on each coordinate makes sense.
+    // so bounding the step to ±1 on each coordinate makes sense.
     if vx.abs() < det && vy.abs() < det && dxx + dyy >= 0. {
         // println!("Easy!");
         return Some((vx / det, vy / det));
@@ -150,7 +152,7 @@ pub fn step(f: impl Fn(f64, f64) -> f64, x: f64, y: f64, ε: f64)
     //
     // This gives the eigenvalues:
     //
-    //     c²·dxx + 2·c·s·dxy + s²·dyy  and  s²·dxx - 2·c·s·dxy c²·dyy
+    //     c²·dxx + 2·c·s·dxy + s²·dyy  and  s²·dxx - 2·c·s·dxy + c²·dyy
     //
     // with eigenvectors: [c;s] and [-s;c] respectively.
     //
@@ -168,6 +170,7 @@ pub fn step(f: impl Fn(f64, f64) -> f64, x: f64, y: f64, ε: f64)
     }
 }
 
+// Covariance matrix of a set of vectors (reduced by shifting mean to origin).
 fn covar(vv: &[Vector]) -> Matrix {
     let mean: Vector = vv.iter().sum::<Vector>() / vv.len() as f64;
     let mut covar = [[0.; 3]; 3];
@@ -182,6 +185,7 @@ fn covar(vv: &[Vector]) -> Matrix {
     covar.into()
 }
 
+// Unreduced covariance.
 fn sumsq(vv: &[Vector]) -> Matrix {
     let mut sumsq = [[0.; 3]; 3];
     for v in vv {
@@ -196,8 +200,11 @@ fn sumsq(vv: &[Vector]) -> Matrix {
 }
 
 pub fn optimize(group: &IcoGroup, a: u8, b: u8, c: u8, d: u8) -> Option<()> {
+    // The reduced covariance matrix of the 5 tuple of vectors has a positive
+    // determinant.  We minimize it to try and get the vectors planar.
     let f = |x, y| evaluate_determinant(group, a, b, c, d, x, y);
 
+    // Scale for derivative estimates.
     fn ε(δx: f64, δy: f64) -> f64 { (0.5 * δx.hypot(δy)).max(1e-10) }
 
     let mut x = group.trunc_ico_dodec.x;
@@ -206,38 +213,57 @@ pub fn optimize(group: &IcoGroup, a: u8, b: u8, c: u8, d: u8) -> Option<()> {
     let (mut δx, mut δy) = step(f, x, y, 0.25)?;
     x += δx;
     y += δy;
-    for _ in 0..10 {
-        (δx, δy) = step(f, x, y, ε(δx, δy))?;
+    for _ in 0..30 {
+        let Some((δxx, δyy)) = step(f, x, y, ε(δx, δy)) else { break };
+        δx = δxx;
+        δy = δyy;
         x += δx;
         y += δy;
     }
+    // See if we are reasonable planar: the least eigenvalue of the reduced
+    // covariance should be small.
     let q = evaluate_eigen(group, a, b, c, d, x, y);
-    if q >= 1e-5 {
+    if q >= 1e-7 {
         return None;
     }
 
-    for _ in 0..10 {
-        (δx, δy) = step(f, x, y, ε(δx, δy))?;
-        x += δx;
-        y += δy;
-    }
-    println!("------------------ OPT -------------------------------");
+    // Now find the position of the plane.
     let z = 1. - (x + y);
+    if x < 1e-3 || y < 1e-3 || z < 1e-3 {
+        // Reject coincident points (along the edges of the basic triangle).
+        return None;
+    }
     let p = (group.corners.transpose() * Vector::new(x, y, z)).unit();
     let pp = five_points(group, &p, a, b, c, d);
-    let (_m, e) = jacobi::jacobi(&sumsq(&pp));
+    // The least eigenvalue of the (unreduced) covariance gives the distance
+    // to the plane.  (Really?)
     use sortn::SortN;
-    let e = (e.x, e.y, e.z).sortn();
-    println!("{} from ({}, {})", p, x, y);
-    println!("Radii: {:?}", e);
-    let c = pentagons::closures(group, a, b, c, d);
-    if c > 0 {
-        println!("WHOOP {}!", c);
-        println!("Covar E = {}", jacobi::jacobi(&covar(&pp)).1);
-        for v in pp {
-            println!("{}", v);
-        }
+    let (_m, eigen) = jacobi::jacobi(&sumsq(&pp));
+    let eigen = (eigen.x, eigen.y, eigen.z).sortn();
+
+    // We always seem to get descending order, but the code doesn't enforce
+    // that.
+    let spans = jacobi::jacobi(&covar(&pp)).1;
+    let spans = (spans.x, spans.y, spans.z).sortn();
+
+    // Reject items which are colinear or that go through the origin.
+    if spans.1 < 1e-7 || eigen.0 < 1e-7 {
+        return None;
     }
+
+    // See if we can form a pentagon where the edges match up.
+    let c = pentagons::closures(group, a, b, c, d);
+    if c == 0 {
+        return None;
+    }
+    println!("Basic point {} from ({}, {})", p, x, y);
+    println!("Eigen: {:?}", eigen);
+    println!("WHOOP {}!", c);
+    println!("Spans E = {:?}", spans);
+    for v in pp {
+        println!("{}", v);
+    }
+    println!("-------------------------------------------------");
     None
 }
 
